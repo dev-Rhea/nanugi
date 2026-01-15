@@ -13,7 +13,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
@@ -48,9 +48,12 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 
     // JWT
-    implementation 'io.jsonwebtoken:jjwt-api'
-    runtimeOnly 'io.jsonwebtoken:jjwt-impl'
-    runtimeOnly 'io.jsonwebtoken:jjwt-jackson'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    // JSON
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
 
     // Lombok & Processor
     compileOnly 'org.projectlombok:lombok'

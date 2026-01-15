@@ -10,8 +10,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+@Getter
 @Entity
 @Table(name = "members")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -42,6 +44,8 @@ public class Member {
 
     private String kakaoId;        // 카카오 고유 식별값 (연동용)
 
+    private String kakaoAccessToken; // 카카오 API 호출용 액세스 토큰
+
     @Builder
     public Member(String name, String nickname, String email, String profileImageUrl, String kakaoId) {
         this.name = name;
@@ -65,4 +69,8 @@ public class Member {
         this.accountNumber = accountNumber;
     }
 
+    // 카카오 액세스 토큰 업데이트
+    public void updateKakaoAccessToken(String kakaoAccessToken) {
+        this.kakaoAccessToken = kakaoAccessToken;
+    }
 }
