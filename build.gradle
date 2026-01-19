@@ -61,3 +61,13 @@ project(':auth-service') {
         enabled = false
     }
 }
+
+// payment-service는 실행 가능한 jar 생성
+project(':payment-service') {
+    bootJar {
+        enabled = true
+    }
+    jar {
+        enabled = false
+    }
+}

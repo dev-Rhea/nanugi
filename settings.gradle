@@ -2,3 +2,4 @@ rootProject.name = 'nanugi'
 
 include 'common'
 include 'auth-service'
+include 'payment-service'
