@@ -33,6 +33,12 @@ public class LadderService {
     private final CalculationService calculationService;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 사다리 게임 실행
+     * 모든 참여자가 사다리를 타고, 결과 순서에 따라 나머지 금액이 분배됨
+     * 예: 10000원 ÷ 3명 = 3333원씩 + 나머지 1원
+     *     사다리 결과 순서: [A, B, C] → A가 3334원, B와 C가 3333원
+     */
     @Transactional
     public LadderResultResponse executeLadder(Long settlementId, Long memberId) {
         Settlement settlement = settlementRepository.findByIdWithParticipants(settlementId)
@@ -50,38 +56,37 @@ public class LadderService {
             throw new CustomException(CustomErrorCode.INVALID_REQUEST);
         }
 
+        List<SettlementParticipant> participants = settlement.getParticipants();
         BigDecimal remainder = calculationService.calculateRemainder(settlement);
 
-        if (remainder.compareTo(BigDecimal.ZERO) <= 0) {
-            LadderResult result = LadderResult.builder()
-                .settlement(settlement)
-                .remainder(BigDecimal.ZERO)
-                .winnerUuids("")
-                .ladderSeed(0L)
-                .ladderStructure("{}")
-                .build();
-            ladderResultRepository.save(result);
-            settlement.setLadderResult(result);
-            settlement.updateStatus(SettlementStatus.IN_PROGRESS);
-
-            return LadderResultResponse.from(result);
-        }
-
-        List<SettlementParticipant> participants = settlement.getParticipants();
+        // 사다리 실행: 모든 참여자를 무작위 순서로 섞기
         long seed = System.currentTimeMillis();
         Random random = new Random(seed);
 
-        int winnerCount = Math.min(remainder.intValue(), participants.size());
         List<String> allUuids = participants.stream()
             .map(SettlementParticipant::getKakaoUuid)
             .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
-        Collections.shuffle(allUuids, random);
-        List<String> winnerUuids = allUuids.subList(0, winnerCount);
 
+        // 원본 순서 보존
+        List<String> originalOrder = new ArrayList<>(allUuids);
+
+        // 사다리 결과로 순서 섞기
+        Collections.shuffle(allUuids, random);
+        List<String> shuffledOrder = new ArrayList<>(allUuids);
+
+        // 나머지를 받을 참여자 (앞에서부터 remainder 수만큼)
+        int remainderInt = remainder.intValue();
+        List<String> extraPayers = (remainderInt > 0)
+            ? shuffledOrder.subList(0, Math.min(remainderInt, shuffledOrder.size()))
+            : Collections.emptyList();
+
+        // 사다리 구조 저장 (재현 가능하도록)
         Map<String, Object> ladderStructure = new HashMap<>();
-        ladderStructure.put("participants", allUuids);
-        ladderStructure.put("winners", winnerUuids);
+        ladderStructure.put("originalOrder", originalOrder);
+        ladderStructure.put("shuffledOrder", shuffledOrder);
+        ladderStructure.put("extraPayers", extraPayers);
         ladderStructure.put("seed", seed);
+        ladderStructure.put("remainder", remainder);
 
         String ladderStructureJson;
         try {
@@ -93,7 +98,7 @@ public class LadderService {
         LadderResult result = LadderResult.builder()
             .settlement(settlement)
             .remainder(remainder)
-            .winnerUuids(String.join(",", winnerUuids))
+            .winnerUuids(String.join(",", extraPayers))
             .ladderSeed(seed)
             .ladderStructure(ladderStructureJson)
             .build();
@@ -101,12 +106,13 @@ public class LadderService {
         ladderResultRepository.save(result);
         settlement.setLadderResult(result);
 
-        calculationService.applyLadderResult(settlement, winnerUuids, remainder);
+        // 사다리 결과 순서에 따라 금액 배분 (나머지까지 완전 분배)
+        calculationService.applyLadderResult(settlement, shuffledOrder, remainder);
 
         settlement.updateStatus(SettlementStatus.IN_PROGRESS);
 
-        log.info("Ladder executed for settlement {}: remainder={}, winners={}",
-            settlementId, remainder, winnerUuids);
+        log.info("Ladder executed for settlement {}: remainder={}, extraPayers={}, shuffledOrder={}",
+            settlementId, remainder, extraPayers, shuffledOrder);
 
         return LadderResultResponse.from(result);
     }
