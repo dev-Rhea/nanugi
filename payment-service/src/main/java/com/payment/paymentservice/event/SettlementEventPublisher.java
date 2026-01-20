@@ -1,18 +1,28 @@
 package com.payment.paymentservice.event;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.payment.common.domain.NotificationOutbox;
+import com.payment.common.domain.NotificationOutbox.NotificationType;
 import com.payment.common.domain.PaymentStatus;
 import com.payment.common.domain.Settlement;
 import com.payment.common.domain.SettlementParticipant;
 import com.payment.common.domain.SettlementStatus;
 import com.payment.common.exception.CustomErrorCode;
 import com.payment.common.exception.CustomException;
+import com.payment.paymentservice.repository.NotificationOutboxRepository;
 import com.payment.paymentservice.repository.SettlementParticipantRepository;
 import com.payment.paymentservice.repository.SettlementRepository;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,12 +34,21 @@ public class SettlementEventPublisher {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final SettlementRepository settlementRepository;
     private final SettlementParticipantRepository participantRepository;
+    private final NotificationOutboxRepository outboxRepository;
+    private final RetryTemplate kafkaRetryTemplate;
+    private final ObjectMapper objectMapper;
 
     @Value("${kafka.topic.settlement-notification}")
     private String notificationTopic;
 
     @Value("${kafka.topic.settlement-reminder}")
     private String reminderTopic;
+
+    @Value("${kafka.producer.send-timeout-seconds:30}")
+    private long sendTimeoutSeconds;
+
+    @Value("${kafka.producer.max-outbox-retries:5}")
+    private int maxOutboxRetries;
 
     @Transactional
     public void publishNotification(Long settlementId, Long memberId) {
@@ -44,19 +63,22 @@ public class SettlementEventPublisher {
             throw new CustomException(CustomErrorCode.INVALID_REQUEST);
         }
 
-        List<SettlementNotificationEvent.ParticipantInfo> participantInfos = settlement.getParticipants().stream()
+        List<SettlementParticipant> unsentParticipants = settlement.getParticipants().stream()
             .filter(p -> !p.isMessageSent())
+            .toList();
+
+        if (unsentParticipants.isEmpty()) {
+            log.info("No participants to notify for settlement {}", settlementId);
+            return;
+        }
+
+        List<SettlementNotificationEvent.ParticipantInfo> participantInfos = unsentParticipants.stream()
             .map(p -> SettlementNotificationEvent.ParticipantInfo.builder()
                 .uuid(p.getKakaoUuid())
                 .nickname(p.getNickname())
                 .amount(p.getTotalAmount())
                 .build())
             .toList();
-
-        if (participantInfos.isEmpty()) {
-            log.info("No participants to notify for settlement {}", settlementId);
-            return;
-        }
 
         SettlementNotificationEvent event = SettlementNotificationEvent.builder()
             .settlementId(settlementId)
@@ -67,14 +89,17 @@ public class SettlementEventPublisher {
             .participants(participantInfos)
             .build();
 
-        kafkaTemplate.send(notificationTopic, settlementId.toString(), event);
+        boolean success = sendWithRetry(notificationTopic, settlementId.toString(), event);
 
-        settlement.getParticipants().stream()
-            .filter(p -> !p.isMessageSent())
-            .forEach(SettlementParticipant::markMessageSent);
-
-        log.info("Published notification event for settlement {}: {} participants", 
-            settlementId, participantInfos.size());
+        if (success) {
+            unsentParticipants.forEach(SettlementParticipant::markMessageSent);
+            log.info("Published notification event for settlement {}: {} participants",
+                settlementId, participantInfos.size());
+        } else {
+            saveToOutbox(settlementId, NotificationType.SETTLEMENT_NOTIFICATION, event,
+                "Kafka send failed after retries");
+            log.warn("Notification saved to outbox for retry: settlementId={}", settlementId);
+        }
     }
 
     @Transactional
@@ -110,9 +135,83 @@ public class SettlementEventPublisher {
             .participants(unpaidParticipants)
             .build();
 
-        kafkaTemplate.send(reminderTopic, settlementId.toString(), event);
+        boolean success = sendWithRetry(reminderTopic, settlementId.toString(), event);
 
-        log.info("Published reminder event for settlement {}: {} unpaid participants", 
-            settlementId, unpaidParticipants.size());
+        if (success) {
+            log.info("Published reminder event for settlement {}: {} unpaid participants",
+                settlementId, unpaidParticipants.size());
+        } else {
+            saveToOutbox(settlementId, NotificationType.SETTLEMENT_REMINDER, event,
+                "Kafka send failed after retries");
+            log.warn("Reminder saved to outbox for retry: settlementId={}", settlementId);
+        }
+    }
+
+    private boolean sendWithRetry(String topic, String key, Object event) {
+        try {
+            return kafkaRetryTemplate.execute(context -> {
+                int attempt = context.getRetryCount() + 1;
+                log.debug("Kafka send attempt {} for topic: {}, key: {}", attempt, topic, key);
+
+                CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send(topic, key, event);
+
+                try {
+                    SendResult<String, Object> result = future.get(sendTimeoutSeconds, TimeUnit.SECONDS);
+                    log.debug("Kafka message sent successfully to topic: {}, partition: {}, offset: {}",
+                        result.getRecordMetadata().topic(),
+                        result.getRecordMetadata().partition(),
+                        result.getRecordMetadata().offset());
+                    return true;
+                } catch (TimeoutException e) {
+                    log.warn("Kafka send timeout for topic: {}, key: {}, attempt: {}", topic, key, attempt);
+                    throw new RuntimeException("Kafka send timeout", e);
+                } catch (Exception e) {
+                    log.warn("Kafka send failed for topic: {}, key: {}, attempt: {}, error: {}",
+                        topic, key, attempt, e.getMessage());
+                    throw new RuntimeException("Kafka send failed", e);
+                }
+            });
+        } catch (Exception e) {
+            log.error("All Kafka send retries exhausted for topic: {}, key: {}", topic, key, e);
+            return false;
+        }
+    }
+
+    private void saveToOutbox(Long settlementId, NotificationType type, Object event, String errorMessage) {
+        try {
+            String payload = objectMapper.writeValueAsString(event);
+            NotificationOutbox outbox = NotificationOutbox.builder()
+                .settlementId(settlementId)
+                .notificationType(type)
+                .payload(payload)
+                .maxRetries(maxOutboxRetries)
+                .build();
+            outbox.markFailed(errorMessage);
+            outboxRepository.save(outbox);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event for outbox: settlementId={}, type={}", settlementId, type, e);
+        }
+    }
+
+    public boolean sendFromOutbox(NotificationOutbox outbox) {
+        String topic = outbox.getNotificationType() == NotificationType.SETTLEMENT_NOTIFICATION
+            ? notificationTopic : reminderTopic;
+        String key = outbox.getSettlementId().toString();
+
+        try {
+            Object event = deserializePayload(outbox);
+            return sendWithRetry(topic, key, event);
+        } catch (Exception e) {
+            log.error("Failed to send from outbox: id={}, error={}", outbox.getId(), e.getMessage());
+            return false;
+        }
+    }
+
+    private Object deserializePayload(NotificationOutbox outbox) throws JsonProcessingException {
+        if (outbox.getNotificationType() == NotificationType.SETTLEMENT_NOTIFICATION) {
+            return objectMapper.readValue(outbox.getPayload(), SettlementNotificationEvent.class);
+        } else {
+            return objectMapper.readValue(outbox.getPayload(), SettlementReminderEvent.class);
+        }
     }
 }

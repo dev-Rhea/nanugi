@@ -6,8 +6,11 @@ import com.payment.common.domain.SettlementParticipant;
 import com.payment.common.domain.SettlementStatus;
 import com.payment.common.exception.CustomErrorCode;
 import com.payment.common.exception.CustomException;
+import com.payment.paymentservice.dto.request.AddParticipantRequest;
 import com.payment.paymentservice.dto.request.CreateSettlementRequest;
+import com.payment.paymentservice.dto.request.UpdateParticipantRequest;
 import com.payment.paymentservice.dto.request.UpdateSettlementRequest;
+import com.payment.paymentservice.dto.response.ParticipantResponse;
 import com.payment.paymentservice.dto.response.SettlementListResponse;
 import com.payment.paymentservice.dto.response.SettlementResponse;
 import com.payment.paymentservice.repository.MemberRepository;
@@ -178,5 +181,112 @@ public class SettlementService {
             .orElseThrow(() -> new CustomException(CustomErrorCode.NOT_FOUND));
 
         return SettlementResponse.from(settlement);
+    }
+
+    @Transactional
+    public ParticipantResponse addParticipant(Long settlementId, Long memberId, AddParticipantRequest request) {
+        Settlement settlement = settlementRepository.findByIdWithParticipants(settlementId)
+            .orElseThrow(() -> new CustomException(CustomErrorCode.NOT_FOUND));
+
+        if (!settlement.getHost().getId().equals(memberId)) {
+            throw new CustomException(CustomErrorCode.FORBIDDEN);
+        }
+
+        if (settlement.getStatus() != SettlementStatus.DRAFT) {
+            throw new CustomException(CustomErrorCode.INVALID_REQUEST);
+        }
+
+        boolean alreadyExists = settlement.getParticipants().stream()
+            .anyMatch(p -> p.getKakaoUuid().equals(request.getKakaoUuid()));
+        if (alreadyExists) {
+            throw new CustomException(CustomErrorCode.INVALID_REQUEST);
+        }
+
+        SettlementParticipant participant = SettlementParticipant.builder()
+            .settlement(settlement)
+            .kakaoUuid(request.getKakaoUuid())
+            .nickname(request.getNickname())
+            .build();
+
+        participantRepository.save(participant);
+        settlement.addParticipant(participant);
+
+        calculationService.calculateAmounts(settlement);
+
+        log.info("Participant added to settlement {}: kakaoUuid={}", settlementId, request.getKakaoUuid());
+
+        return ParticipantResponse.from(participant);
+    }
+
+    @Transactional
+    public ParticipantResponse updateParticipant(Long settlementId, Long participantId, Long memberId,
+                                                  UpdateParticipantRequest request) {
+        Settlement settlement = settlementRepository.findById(settlementId)
+            .orElseThrow(() -> new CustomException(CustomErrorCode.NOT_FOUND));
+
+        if (!settlement.getHost().getId().equals(memberId)) {
+            throw new CustomException(CustomErrorCode.FORBIDDEN);
+        }
+
+        if (settlement.getStatus() != SettlementStatus.DRAFT) {
+            throw new CustomException(CustomErrorCode.INVALID_REQUEST);
+        }
+
+        SettlementParticipant participant = participantRepository.findById(participantId)
+            .orElseThrow(() -> new CustomException(CustomErrorCode.NOT_FOUND));
+
+        if (!participant.getSettlement().getId().equals(settlementId)) {
+            throw new CustomException(CustomErrorCode.INVALID_REQUEST);
+        }
+
+        participant.updateNickname(request.getNickname());
+
+        log.info("Participant updated in settlement {}: participantId={}", settlementId, participantId);
+
+        return ParticipantResponse.from(participant);
+    }
+
+    @Transactional
+    public void removeParticipant(Long settlementId, Long participantId, Long memberId) {
+        Settlement settlement = settlementRepository.findByIdWithParticipants(settlementId)
+            .orElseThrow(() -> new CustomException(CustomErrorCode.NOT_FOUND));
+
+        if (!settlement.getHost().getId().equals(memberId)) {
+            throw new CustomException(CustomErrorCode.FORBIDDEN);
+        }
+
+        if (settlement.getStatus() != SettlementStatus.DRAFT) {
+            throw new CustomException(CustomErrorCode.INVALID_REQUEST);
+        }
+
+        SettlementParticipant participant = participantRepository.findById(participantId)
+            .orElseThrow(() -> new CustomException(CustomErrorCode.NOT_FOUND));
+
+        if (!participant.getSettlement().getId().equals(settlementId)) {
+            throw new CustomException(CustomErrorCode.INVALID_REQUEST);
+        }
+
+        settlement.removeParticipant(participant);
+        participantRepository.delete(participant);
+
+        if (!settlement.getParticipants().isEmpty()) {
+            calculationService.calculateAmounts(settlement);
+        }
+
+        log.info("Participant removed from settlement {}: participantId={}", settlementId, participantId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ParticipantResponse> getParticipants(Long settlementId, Long memberId) {
+        Settlement settlement = settlementRepository.findByIdWithParticipants(settlementId)
+            .orElseThrow(() -> new CustomException(CustomErrorCode.NOT_FOUND));
+
+        if (!settlement.getHost().getId().equals(memberId)) {
+            throw new CustomException(CustomErrorCode.FORBIDDEN);
+        }
+
+        return settlement.getParticipants().stream()
+            .map(ParticipantResponse::from)
+            .toList();
     }
 }
