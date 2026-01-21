@@ -73,4 +73,12 @@ public class SettlementController {
         SettlementResponse response = settlementService.finalizeSettlement(id, memberId);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<SettlementResponse> cancelSettlement(
+        @PathVariable Long id,
+        @AuthenticationPrincipal Long memberId) {
+        SettlementResponse response = settlementService.cancelSettlement(id, memberId);
+        return ResponseEntity.ok(response);
+    }
 }

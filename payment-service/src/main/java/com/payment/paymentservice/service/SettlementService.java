@@ -289,4 +289,34 @@ public class SettlementService {
             .map(ParticipantResponse::from)
             .toList();
     }
+
+    /**
+     * 정산 취소
+     * DRAFT, PENDING 상태에서만 취소 가능
+     * IN_PROGRESS, COMPLETED 상태에서는 취소 불가
+     */
+    @Transactional
+    public SettlementResponse cancelSettlement(Long settlementId, Long memberId) {
+        Settlement settlement = settlementRepository.findById(settlementId)
+            .orElseThrow(() -> new CustomException(CustomErrorCode.NOT_FOUND));
+
+        if (!settlement.getHost().getId().equals(memberId)) {
+            throw new CustomException(CustomErrorCode.FORBIDDEN);
+        }
+
+        SettlementStatus currentStatus = settlement.getStatus();
+
+        // IN_PROGRESS, COMPLETED, CANCELLED 상태에서는 취소 불가
+        if (currentStatus == SettlementStatus.IN_PROGRESS ||
+            currentStatus == SettlementStatus.COMPLETED ||
+            currentStatus == SettlementStatus.CANCELLED) {
+            throw new CustomException(CustomErrorCode.INVALID_REQUEST);
+        }
+
+        settlement.updateStatus(SettlementStatus.CANCELLED);
+
+        log.info("Settlement cancelled: id={}, previousStatus={}", settlementId, currentStatus);
+
+        return SettlementResponse.from(settlement);
+    }
 }
