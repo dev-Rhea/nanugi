@@ -1,0 +1,60 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: payment-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/nanugi
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+jwt:
+  secret: ${JWT_SECRET:dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBqd3QgdG9rZW4gZ2VuZXJhdGlvbg==}
+
+kafka:
+  topic:
+    settlement-notification: settlement-notification
+    settlement-reminder: settlement-reminder
+  producer:
+    retries: 3
+    retry-backoff-ms: 1000
+    request-timeout-ms: 30000
+    delivery-timeout-ms: 120000
+    send-timeout-seconds: 30
+    max-outbox-retries: 5
+
+notification:
+  retry:
+    interval-ms: 60000  # 1분마다 실패한 알림 재시도
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:3000}
+
+crawler:
+  python:
+    path: python3
+  timeout-seconds: 30
+
+logging:
+  level:
+    com.payment: DEBUG
