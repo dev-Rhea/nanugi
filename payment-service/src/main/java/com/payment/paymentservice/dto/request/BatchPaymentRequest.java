@@ -1,0 +1,20 @@
+package com.payment.paymentservice.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import java.math.BigDecimal;
+import java.util.List;
+
+public record BatchPaymentRequest(
+    @NotNull Long groupBuyId,
+    @NotBlank String productName,
+    @NotNull @Positive BigDecimal pricePerPerson,
+    @NotNull List<ParticipantPaymentInfo> participants
+) {
+    public record ParticipantPaymentInfo(
+        @NotNull Long participantId,
+        @NotBlank String nickname,
+        @NotBlank String billingKey
+    ) {}
+}

@@ -1,0 +1,11 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: product-service
+
+crawler:
+  python:
+    path: ${PYTHON_PATH:python3}
+  timeout-seconds: 30
