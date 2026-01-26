@@ -1,16 +1,14 @@
 server:
-  port: 8082
+  port: 8081
 
 spring:
   application:
     name: payment-service
-
   datasource:
-    url: jdbc:postgresql://localhost:5432/nanugi
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/nanugi}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
-
   jpa:
     hibernate:
       ddl-auto: update
@@ -18,23 +16,25 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
 jwt:
-  secret: ${JWT_SECRET:dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBqd3QgdG9rZW4gZ2VuZXJhdGlvbg==}
+  secret: ${JWT_SECRET}
 
 kafka:
   topic:
-    settlement-notification: settlement-notification
-    settlement-reminder: settlement-reminder
+    settlement-notification: settlement.notification
+    settlement-reminder: settlement.reminder
+    group-buy-payment-success: group-buy.payment.success
+    group-buy-payment-failed: group-buy.payment.failed
+    group-buy-delivery-complete: group-buy.delivery.complete
+    group-buy-shipping-started: group-buy.shipping.started
+    group-buy-shipping-info-complete: group-buy.shipping-info.complete
   producer:
     retries: 3
     retry-backoff-ms: 1000
@@ -43,18 +43,15 @@ kafka:
     send-timeout-seconds: 30
     max-outbox-retries: 5
 
-notification:
-  retry:
-    interval-ms: 60000  # 1분마다 실패한 알림 재시도
+delivery:
+  tracking:
+    api-key: ${DELIVERY_TRACKING_API_KEY:}
+    api-url: https://info.sweettracker.co.kr/api/v1/trackingInfo
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:3000}
 
 crawler:
   python:
-    path: python3
+    path: ${PYTHON_PATH:python3}
   timeout-seconds: 30
-
-logging:
-  level:
-    com.payment: DEBUG

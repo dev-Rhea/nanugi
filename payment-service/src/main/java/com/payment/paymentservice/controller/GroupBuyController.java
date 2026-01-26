@@ -4,11 +4,20 @@ import com.payment.paymentservice.dto.request.CrawlProductRequest;
 import com.payment.paymentservice.dto.request.CreateGroupBuyRequest;
 import com.payment.paymentservice.dto.request.JoinGroupBuyRequest;
 import com.payment.paymentservice.dto.request.RegisterBillingKeyRequest;
+import com.payment.paymentservice.dto.request.RegisterTrackingRequest;
+import com.payment.paymentservice.dto.request.SubmitShippingInfoRequest;
 import com.payment.paymentservice.dto.response.CrawlProductResponse;
+import com.payment.paymentservice.dto.response.DeliveryResponse;
+import com.payment.paymentservice.dto.response.DeliveryTrackingResponse;
 import com.payment.paymentservice.dto.response.GroupBuyListResponse;
 import com.payment.paymentservice.dto.response.GroupBuyParticipantResponse;
 import com.payment.paymentservice.dto.response.GroupBuyResponse;
 import com.payment.paymentservice.dto.response.KakaoShareTemplateResponse;
+import com.payment.paymentservice.dto.response.ShippingStatusResponse;
+import com.payment.paymentservice.payment.PaymentGateway.PaymentResult;
+import com.payment.paymentservice.service.DeliveryService;
+import com.payment.paymentservice.service.GroupBuyPaymentService;
+import com.payment.paymentservice.service.GroupBuyPaymentService.BatchPaymentResult;
 import com.payment.paymentservice.service.GroupBuyService;
 import com.payment.paymentservice.service.GroupBuyService.BillingKeyStatusResponse;
 import java.math.BigDecimal;
@@ -34,6 +43,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class GroupBuyController {
 
     private final GroupBuyService groupBuyService;
+    private final GroupBuyPaymentService paymentService;
+    private final DeliveryService deliveryService;
 
     /**
      * URL에서 상품 정보 크롤링 (미리보기)
@@ -207,6 +218,113 @@ public class GroupBuyController {
         @PathVariable Long id,
         @AuthenticationPrincipal Long memberId) {
         GroupBuyResponse response = groupBuyService.confirmRecruitment(id, memberId);
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== Phase 3: 일괄 결제 및 배송 관리 ====================
+
+    /**
+     * 일괄 결제 실행 (모집 확정 후)
+     */
+    @PostMapping("/{id}/batch-payment")
+    public ResponseEntity<BatchPaymentResult> processBatchPayment(
+        @PathVariable Long id,
+        @AuthenticationPrincipal Long memberId) {
+        BatchPaymentResult result = paymentService.processBatchPayment(id, memberId);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * 결제 실패자 재결제
+     */
+    @PostMapping("/{id}/participants/{participantId}/retry-payment")
+    public ResponseEntity<PaymentResult> retryPayment(
+        @PathVariable Long id,
+        @PathVariable Long participantId,
+        @AuthenticationPrincipal Long memberId) {
+        PaymentResult result = paymentService.retryPayment(id, participantId);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * 환불 처리
+     */
+    @PostMapping("/{id}/participants/{participantId}/refund")
+    public ResponseEntity<PaymentResult> refundPayment(
+        @PathVariable Long id,
+        @PathVariable Long participantId,
+        @AuthenticationPrincipal Long memberId,
+        @RequestParam(defaultValue = "사용자 요청") String reason) {
+        PaymentResult result = paymentService.refundPayment(id, participantId, reason);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * 배송지 입력 (참여자)
+     */
+    @PostMapping("/public/{shareToken}/shipping-info")
+    public ResponseEntity<GroupBuyParticipantResponse> submitShippingInfo(
+        @PathVariable String shareToken,
+        @RequestParam String kakaoUuid,
+        @RequestBody SubmitShippingInfoRequest request) {
+        GroupBuyParticipantResponse response = deliveryService.submitShippingInfo(
+            shareToken, kakaoUuid, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 배송지 입력 현황 조회 (방장)
+     */
+    @GetMapping("/{id}/shipping-status")
+    public ResponseEntity<ShippingStatusResponse> getShippingStatus(
+        @PathVariable Long id,
+        @AuthenticationPrincipal Long memberId) {
+        ShippingStatusResponse response = deliveryService.getShippingStatus(id, memberId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 운송장 등록 (방장)
+     */
+    @PostMapping("/{id}/tracking")
+    public ResponseEntity<DeliveryResponse> registerTracking(
+        @PathVariable Long id,
+        @AuthenticationPrincipal Long memberId,
+        @RequestBody RegisterTrackingRequest request) {
+        DeliveryResponse response = deliveryService.registerTracking(id, memberId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 배송 정보 조회
+     */
+    @GetMapping("/{id}/delivery")
+    public ResponseEntity<DeliveryResponse> getDelivery(
+        @PathVariable Long id,
+        @AuthenticationPrincipal Long memberId) {
+        DeliveryResponse response = deliveryService.getDelivery(id, memberId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 배송 추적 (실시간)
+     */
+    @GetMapping("/{id}/delivery/tracking")
+    public ResponseEntity<DeliveryTrackingResponse> trackDelivery(
+        @PathVariable Long id,
+        @AuthenticationPrincipal Long memberId) {
+        DeliveryTrackingResponse response = deliveryService.trackDelivery(id, memberId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 배송 완료 처리 (방장 수동)
+     */
+    @PostMapping("/{id}/delivery/complete")
+    public ResponseEntity<DeliveryResponse> completeDelivery(
+        @PathVariable Long id,
+        @AuthenticationPrincipal Long memberId) {
+        DeliveryResponse response = deliveryService.completeDelivery(id, memberId);
         return ResponseEntity.ok(response);
     }
 }
