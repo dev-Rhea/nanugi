@@ -71,3 +71,23 @@ project(':payment-service') {
         enabled = false
     }
 }
+
+// order-service는 실행 가능한 jar 생성
+project(':order-service') {
+    bootJar {
+        enabled = true
+    }
+    jar {
+        enabled = false
+    }
+}
+
+// product-service는 실행 가능한 jar 생성
+project(':product-service') {
+    bootJar {
+        enabled = true
+    }
+    jar {
+        enabled = false
+    }
+}
