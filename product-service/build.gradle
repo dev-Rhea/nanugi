@@ -5,10 +5,12 @@ dependencies {
 
     // JSON
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
     // Processor
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
     // Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'com.h2database:h2'
 }
