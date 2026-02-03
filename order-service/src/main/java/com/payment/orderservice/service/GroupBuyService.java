@@ -232,6 +232,9 @@ public class GroupBuyService {
 
         groupBuy.updateStatus(GroupBuyStatus.CANCELLED);
 
+        // 공동구매 취소 이벤트 발행
+        eventPublisher.publishGroupBuyCancelled(groupBuy);
+
         return GroupBuyResponse.fromWithoutParticipants(groupBuy);
     }
 

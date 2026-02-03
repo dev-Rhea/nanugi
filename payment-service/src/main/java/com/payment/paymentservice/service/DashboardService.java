@@ -25,6 +25,7 @@ public class DashboardService {
 
     private final SettlementRepository settlementRepository;
     private final SettlementParticipantRepository participantRepository;
+    private final com.payment.paymentservice.event.SettlementEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard(Long memberId) {
@@ -98,6 +99,9 @@ public class DashboardService {
         if (confirmedCount == settlement.getParticipants().size()) {
             settlement.updateStatus(SettlementStatus.COMPLETED);
             log.info("Settlement {} completed - all participants confirmed", settlementId);
+
+            // 정산 완료 이벤트 발행 (분석 서비스용)
+            eventPublisher.publishSettlementCompleted(settlement);
         }
 
         log.info("Payment confirmed for participant {} in settlement {}", participantId, settlementId);

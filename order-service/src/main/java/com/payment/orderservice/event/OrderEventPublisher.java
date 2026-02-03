@@ -31,6 +31,12 @@ public class OrderEventPublisher {
     @Value("${kafka.topic.group-buy-delivery-complete:group-buy.delivery.complete}")
     private String deliveryCompleteTopic;
 
+    @Value("${kafka.topic.group-buy-completed:group-buy-completed}")
+    private String groupBuyCompletedTopic;
+
+    @Value("${kafka.topic.group-buy-cancelled:group-buy-cancelled}")
+    private String groupBuyCancelledTopic;
+
     /**
      * 결제 요청 이벤트 발행 (모집 확정 시)
      */
@@ -129,7 +135,92 @@ public class OrderEventPublisher {
         }
     }
 
+    /**
+     * 공동구매 완료 이벤트 발행 (결제 완료 시)
+     */
+    public void publishGroupBuyCompleted(GroupBuy groupBuy) {
+        String domain = extractDomain(groupBuy.getProductUrl());
+
+        GroupBuyCompletedEvent event = new GroupBuyCompletedEvent(
+            groupBuy.getId(),
+            groupBuy.getHost().getId(),
+            groupBuy.getProductName(),
+            groupBuy.getProductPrice().longValue(),
+            groupBuy.getPricePerPerson().longValue(),
+            groupBuy.getCurrentParticipantCount(),
+            domain,
+            groupBuy.getPaidAt()
+        );
+
+        try {
+            kafkaTemplate.send(groupBuyCompletedTopic, groupBuy.getId().toString(), event);
+            log.info("GroupBuyCompleted event published: groupBuyId={}", groupBuy.getId());
+        } catch (Exception e) {
+            log.error("Failed to publish GroupBuyCompleted event: groupBuyId={}", groupBuy.getId(), e);
+        }
+    }
+
+    /**
+     * 공동구매 취소 이벤트 발행
+     */
+    public void publishGroupBuyCancelled(GroupBuy groupBuy) {
+        GroupBuyCancelledEvent event = new GroupBuyCancelledEvent(
+            groupBuy.getId(),
+            groupBuy.getHost().getId(),
+            LocalDateTime.now()
+        );
+
+        try {
+            kafkaTemplate.send(groupBuyCancelledTopic, groupBuy.getId().toString(), event);
+            log.info("GroupBuyCancelled event published: groupBuyId={}", groupBuy.getId());
+        } catch (Exception e) {
+            log.error("Failed to publish GroupBuyCancelled event: groupBuyId={}", groupBuy.getId(), e);
+        }
+    }
+
+    private String extractDomain(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        try {
+            java.net.URI uri = new java.net.URI(url);
+            String host = uri.getHost();
+            if (host == null) {
+                return null;
+            }
+            // www. 제거
+            if (host.startsWith("www.")) {
+                host = host.substring(4);
+            }
+            // .com, .co.kr 등 제거하여 도메인명만 추출
+            int dotIndex = host.indexOf('.');
+            if (dotIndex > 0) {
+                return host.substring(0, dotIndex);
+            }
+            return host;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     // Event DTOs
+    public record GroupBuyCompletedEvent(
+        Long groupBuyId,
+        Long hostId,
+        String productName,
+        Long productPrice,
+        Long pricePerPerson,
+        int participantCount,
+        String domain,
+        LocalDateTime completedAt
+    ) {}
+
+    public record GroupBuyCancelledEvent(
+        Long groupBuyId,
+        Long hostId,
+        LocalDateTime cancelledAt
+    ) {}
+
     public record PaymentRequestEvent(
         Long groupBuyId,
         String productName,

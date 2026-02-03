@@ -44,6 +44,12 @@ public class SettlementEventPublisher {
     @Value("${kafka.topic.settlement-reminder}")
     private String reminderTopic;
 
+    @Value("${kafka.topic.settlement-completed:settlement-completed}")
+    private String settlementCompletedTopic;
+
+    @Value("${kafka.topic.settlement-cancelled:settlement-cancelled}")
+    private String settlementCancelledTopic;
+
     @Value("${kafka.producer.send-timeout-seconds:30}")
     private long sendTimeoutSeconds;
 
@@ -146,6 +152,71 @@ public class SettlementEventPublisher {
             log.warn("Reminder saved to outbox for retry: settlementId={}", settlementId);
         }
     }
+
+    /**
+     * 정산 완료 이벤트 발행 (분석 서비스용)
+     */
+    public void publishSettlementCompleted(Settlement settlement) {
+        int participantCount = settlement.getParticipants().size();
+        long amountPerPerson = participantCount > 0
+            ? settlement.getTotalAmount().longValue() / participantCount
+            : settlement.getTotalAmount().longValue();
+
+        SettlementCompletedEvent event = new SettlementCompletedEvent(
+            settlement.getId(),
+            settlement.getHost().getId(),
+            settlement.getTitle(),
+            settlement.getTotalAmount().longValue(),
+            amountPerPerson,
+            participantCount,
+            settlement.getStoreName(),
+            java.time.LocalDateTime.now()
+        );
+
+        boolean success = sendWithRetry(settlementCompletedTopic, settlement.getId().toString(), event);
+
+        if (success) {
+            log.info("Published SettlementCompleted event: settlementId={}", settlement.getId());
+        } else {
+            log.warn("Failed to publish SettlementCompleted event: settlementId={}", settlement.getId());
+        }
+    }
+
+    /**
+     * 정산 취소 이벤트 발행 (분석 서비스용)
+     */
+    public void publishSettlementCancelled(Settlement settlement) {
+        SettlementCancelledEvent event = new SettlementCancelledEvent(
+            settlement.getId(),
+            settlement.getHost().getId(),
+            java.time.LocalDateTime.now()
+        );
+
+        boolean success = sendWithRetry(settlementCancelledTopic, settlement.getId().toString(), event);
+
+        if (success) {
+            log.info("Published SettlementCancelled event: settlementId={}", settlement.getId());
+        } else {
+            log.warn("Failed to publish SettlementCancelled event: settlementId={}", settlement.getId());
+        }
+    }
+
+    public record SettlementCompletedEvent(
+        Long settlementId,
+        Long hostId,
+        String title,
+        Long totalAmount,
+        Long amountPerPerson,
+        int participantCount,
+        String storeName,
+        java.time.LocalDateTime completedAt
+    ) {}
+
+    public record SettlementCancelledEvent(
+        Long settlementId,
+        Long hostId,
+        java.time.LocalDateTime cancelledAt
+    ) {}
 
     private boolean sendWithRetry(String topic, String key, Object event) {
         try {

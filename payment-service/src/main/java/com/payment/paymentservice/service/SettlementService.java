@@ -31,6 +31,7 @@ public class SettlementService {
     private final SettlementParticipantRepository participantRepository;
     private final MemberRepository memberRepository;
     private final CalculationService calculationService;
+    private final com.payment.paymentservice.event.SettlementEventPublisher eventPublisher;
 
     @Transactional
     public SettlementResponse createSettlement(Long memberId, CreateSettlementRequest request) {
@@ -314,6 +315,9 @@ public class SettlementService {
         }
 
         settlement.updateStatus(SettlementStatus.CANCELLED);
+
+        // 정산 취소 이벤트 발행 (분석 서비스용)
+        eventPublisher.publishSettlementCancelled(settlement);
 
         log.info("Settlement cancelled: id={}, previousStatus={}", settlementId, currentStatus);
 

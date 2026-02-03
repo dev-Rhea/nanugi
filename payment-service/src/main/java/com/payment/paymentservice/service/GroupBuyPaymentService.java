@@ -10,6 +10,7 @@ import com.payment.paymentservice.dto.response.PaymentResponse;
 import com.payment.paymentservice.payment.PaymentGateway;
 import com.payment.paymentservice.payment.PaymentGateway.PaymentResult;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +19,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -26,7 +29,11 @@ import org.springframework.stereotype.Service;
 public class GroupBuyPaymentService {
 
     private final PaymentGateway paymentGateway;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ExecutorService paymentExecutor = Executors.newFixedThreadPool(10);
+
+    @Value("${kafka.topic.group-buy-payment-success:group-buy.payment.success}")
+    private String paymentSuccessTopic;
 
     /**
      * 단건 결제 처리
@@ -108,6 +115,10 @@ public class GroupBuyPaymentService {
         log.info("Batch payment completed: groupBuyId={}, success={}, fail={}",
             groupBuyId, successCount, failCount);
 
+        if (allSuccess) {
+            publishPaymentSuccess(groupBuyId);
+        }
+
         return new BatchPaymentResponse(
             groupBuyId,
             successCount,
@@ -116,6 +127,18 @@ public class GroupBuyPaymentService {
             allSuccess
         );
     }
+
+    private void publishPaymentSuccess(Long groupBuyId) {
+        PaymentSuccessEvent event = new PaymentSuccessEvent(groupBuyId, LocalDateTime.now());
+        try {
+            kafkaTemplate.send(paymentSuccessTopic, groupBuyId.toString(), event);
+            log.info("Payment success event published: groupBuyId={}", groupBuyId);
+        } catch (Exception e) {
+            log.error("Failed to publish payment success event: groupBuyId={}", groupBuyId, e);
+        }
+    }
+
+    public record PaymentSuccessEvent(Long groupBuyId, LocalDateTime completedAt) {}
 
     /**
      * 환불 처리
