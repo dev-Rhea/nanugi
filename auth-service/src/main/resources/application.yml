@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: ${DATABASE_URL:postgres}
-    username: ${DATABASE_USERNAME:postgres}
-    password: ${DATABASE_PASSWORD:postgres}
+    url: ${AUTH_DATABASE_URL}
+    username: ${AUTH_DATABASE_USERNAME}
+    password: ${AUTH_DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -16,8 +16,8 @@ spring:
         format_sql: true
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      host: ${AUTH_REDIS_HOST}
+      port: ${AUTH_REDIS_PORT}
 
 kakao:
   client-id: ${KAKAO_CLIENT_ID}
@@ -27,3 +27,6 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-expiration: 3600000 # 1 hour
   refresh-token-expiration: 604800000 # 7 days
+
+internal:
+  service-key: ${INTERNAL_SERVICE_KEY}

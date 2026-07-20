@@ -1,21 +1,14 @@
 package com.payment.paymentservice.service;
 
+import com.payment.paymentservice.batch.BatchPaymentJobLauncher;
 import com.payment.paymentservice.dto.request.BatchPaymentRequest;
-import com.payment.paymentservice.dto.request.BatchPaymentRequest.ParticipantPaymentInfo;
 import com.payment.paymentservice.dto.request.ProcessPaymentRequest;
 import com.payment.paymentservice.dto.request.RefundRequest;
 import com.payment.paymentservice.dto.response.BatchPaymentResponse;
-import com.payment.paymentservice.dto.response.BatchPaymentResponse.ParticipantPaymentResult;
 import com.payment.paymentservice.dto.response.PaymentResponse;
+import com.payment.paymentservice.lock.DistributedLock;
 import com.payment.paymentservice.payment.PaymentGateway;
 import com.payment.paymentservice.payment.PaymentGateway.PaymentResult;
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,11 +19,13 @@ import org.springframework.stereotype.Service;
 public class GroupBuyPaymentService {
 
     private final PaymentGateway paymentGateway;
-    private final ExecutorService paymentExecutor = Executors.newFixedThreadPool(10);
+    private final BatchPaymentJobLauncher batchPaymentJobLauncher;
 
     /**
-     * 단건 결제 처리
+     * 단건 결제 처리.
+     * orderId 기반 분산 락으로 동시 중복 결제를 방지합니다.
      */
+    @DistributedLock(key = "'lock:payment:' + #request.orderId()", waitTime = 3, leaseTime = 30)
     public PaymentResponse processPayment(ProcessPaymentRequest request) {
         PaymentResult result = paymentGateway.processPayment(
             request.billingKey(),
@@ -49,77 +44,21 @@ public class GroupBuyPaymentService {
     }
 
     /**
-     * 일괄 결제 실행 (모집 확정 후)
+     * 일괄 결제 처리 (공동구매 목표 달성 시).
+     * Spring Batch Chunk(100건) 단위 트랜잭션으로 OOM 없이 안정적으로 처리합니다.
+     * 시스템 중단 후 재시작 시 완료된 건은 Step 메타데이터로 자동 스킵됩니다.
      */
+    @DistributedLock(key = "'lock:batch-payment:' + #request.groupBuyId()", waitTime = 0, leaseTime = 600)
     public BatchPaymentResponse processBatchPayment(BatchPaymentRequest request) {
-        Long groupBuyId = request.groupBuyId();
-        BigDecimal pricePerPerson = request.pricePerPerson();
-        String orderNamePrefix = String.format("[공동구매] %s", request.productName());
-
-        List<CompletableFuture<ParticipantPaymentResult>> futures = new ArrayList<>();
-
-        // 비동기 병렬 결제 처리
-        for (ParticipantPaymentInfo participant : request.participants()) {
-            CompletableFuture<ParticipantPaymentResult> future = CompletableFuture.supplyAsync(() -> {
-                String orderId = generateOrderId(groupBuyId, participant.participantId());
-                String orderName = orderNamePrefix + " - " + participant.nickname();
-
-                PaymentResult result = paymentGateway.processPayment(
-                    participant.billingKey(),
-                    orderId,
-                    pricePerPerson,
-                    orderName
-                );
-
-                return new ParticipantPaymentResult(
-                    participant.participantId(),
-                    participant.nickname(),
-                    result.success(),
-                    result.paymentKey(),
-                    result.receiptUrl(),
-                    result.errorMessage()
-                );
-            }, paymentExecutor);
-
-            futures.add(future);
-        }
-
-        // 모든 결제 완료 대기
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-        // 결과 수집
-        List<ParticipantPaymentResult> results = new ArrayList<>();
-        int successCount = 0;
-        int failCount = 0;
-
-        for (CompletableFuture<ParticipantPaymentResult> future : futures) {
-            ParticipantPaymentResult item = future.join();
-            results.add(item);
-
-            if (item.success()) {
-                successCount++;
-            } else {
-                failCount++;
-            }
-        }
-
-        boolean allSuccess = failCount == 0;
-
-        log.info("Batch payment completed: groupBuyId={}, success={}, fail={}",
-            groupBuyId, successCount, failCount);
-
-        return new BatchPaymentResponse(
-            groupBuyId,
-            successCount,
-            failCount,
-            results,
-            allSuccess
-        );
+        log.info("Starting batch payment: groupBuyId={}, participants={}",
+            request.groupBuyId(), request.participants().size());
+        return batchPaymentJobLauncher.launch(request);
     }
 
     /**
-     * 환불 처리
+     * 환불 처리.
      */
+    @DistributedLock(key = "'lock:refund:' + #request.paymentKey()", waitTime = 3, leaseTime = 30)
     public PaymentResponse refundPayment(RefundRequest request) {
         PaymentResult result = paymentGateway.cancelPayment(request.paymentKey(), request.reason());
 
@@ -130,10 +69,5 @@ public class GroupBuyPaymentService {
             log.warn("Refund failed: paymentKey={}, error={}", request.paymentKey(), result.errorMessage());
             return PaymentResponse.failure(null, result.errorCode(), result.errorMessage());
         }
-    }
-
-    private String generateOrderId(Long groupBuyId, Long participantId) {
-        return String.format("GB%d_P%d_%s", groupBuyId, participantId,
-            UUID.randomUUID().toString().substring(0, 8));
     }
 }

@@ -1,7 +1,6 @@
 package com.payment.authservice.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.payment.authservice.client.KakaoApiClient;
 import com.payment.authservice.dto.FriendResponse;
 import com.payment.authservice.dto.KakaoFriendsResponse;
@@ -212,18 +211,13 @@ public class SettlementService {
     }
 
     private String buildTemplateObject(String message) {
-        try {
-            Map<String, Object> template = new HashMap<>();
-            template.put("object_type", "text");
-            template.put("text", message);
-            template.put("link", Map.of(
-                "web_url", "https://nanugi.com",
-                "mobile_web_url", "https://nanugi.com"
-            ));
-
-            return objectMapper.writeValueAsString(template);
-        } catch (JsonProcessingException e) {
-            throw new CustomException(CustomErrorCode.INTERNAL_SERVER_ERROR, "메시지 생성에 실패했습니다.");
-        }
+        Map<String, Object> template = new HashMap<>();
+        template.put("object_type", "text");
+        template.put("text", message);
+        template.put("link", Map.of(
+            "web_url", "https://nanugi.com",
+            "mobile_web_url", "https://nanugi.com"
+        ));
+        return objectMapper.writeValueAsString(template);
     }
 }

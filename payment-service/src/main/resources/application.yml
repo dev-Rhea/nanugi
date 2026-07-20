@@ -5,9 +5,9 @@ spring:
   application:
     name: payment-service
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/nanugi}
-    username: ${DATABASE_USERNAME:postgres}
-    password: ${DATABASE_PASSWORD:postgres}
+    url: ${PAYMENT_DATABASE_URL}
+    username: ${PAYMENT_DATABASE_USERNAME}
+    password: ${PAYMENT_DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -18,10 +18,15 @@ spring:
         format_sql: true
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      host: ${PAYMENT_REDIS_HOST}
+      port: ${PAYMENT_REDIS_PORT}
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${PAYMENT_KAFKA_BOOTSTRAP_SERVERS}
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
 
 jwt:
   secret: ${JWT_SECRET}
@@ -55,3 +60,17 @@ crawler:
   python:
     path: ${PYTHON_PATH:python3}
   timeout-seconds: 30
+
+notification:
+  retry:
+    interval-ms: 60000
+
+payment:
+  outbox:
+    relay-interval-ms: 5000
+  encryption:
+    key: ${PAYMENT_ENCRYPTION_KEY}
+
+ocr:
+  kakao:
+    app-key: ${OCR_KAKAO_APP_KEY:}

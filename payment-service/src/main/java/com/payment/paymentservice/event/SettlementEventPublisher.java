@@ -84,8 +84,7 @@ public class SettlementEventPublisher {
             .settlementId(settlementId)
             .hostId(settlement.getHost().getId())
             .hostName(settlement.getHost().getNickname())
-            .bank(settlement.getReceiverBank() != null ? settlement.getReceiverBank().name() : null)
-            .accountNumber(settlement.getReceiverAccountNumber())
+            .shareToken(settlement.getShareToken())
             .participants(participantInfos)
             .build();
 
@@ -131,7 +130,9 @@ public class SettlementEventPublisher {
 
         SettlementReminderEvent event = SettlementReminderEvent.builder()
             .settlementId(settlementId)
+            .hostId(settlement.getHost().getId())
             .hostName(settlement.getHost().getNickname())
+            .shareToken(settlement.getShareToken())
             .participants(unpaidParticipants)
             .build();
 

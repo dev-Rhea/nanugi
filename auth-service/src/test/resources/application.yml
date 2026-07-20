@@ -19,6 +19,8 @@ spring:
     redis:
       host: localhost
       port: 6379
+      repositories:
+        enabled: false
 
 kakao:
   client-id: test-client-id
@@ -28,3 +30,6 @@ jwt:
   secret: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=
   access-token-expiration: 3600000
   refresh-token-expiration: 604800000
+
+internal:
+  service-key: test-internal-service-key

@@ -91,3 +91,13 @@ project(':product-service') {
         enabled = false
     }
 }
+
+// notification-service는 실행 가능한 jar 생성
+project(':notification-service') {
+    bootJar {
+        enabled = true
+    }
+    jar {
+        enabled = false
+    }
+}

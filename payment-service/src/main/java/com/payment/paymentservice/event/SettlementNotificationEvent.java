@@ -16,8 +16,7 @@ public class SettlementNotificationEvent {
     private Long settlementId;
     private Long hostId;
     private String hostName;
-    private String bank;
-    private String accountNumber;
+    private String shareToken;
     private List<ParticipantInfo> participants;
 
     @Getter

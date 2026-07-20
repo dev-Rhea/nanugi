@@ -14,7 +14,9 @@ import lombok.NoArgsConstructor;
 public class SettlementReminderEvent {
 
     private Long settlementId;
+    private Long hostId;
     private String hostName;
+    private String shareToken;
     private List<ParticipantInfo> participants;
 
     @Getter
