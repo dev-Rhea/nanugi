@@ -23,6 +23,11 @@ spring:
       port: 6379
   kafka:
     bootstrap-servers: localhost:9092
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
 
 jwt:
   secret: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=

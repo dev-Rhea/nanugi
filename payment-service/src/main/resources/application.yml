@@ -22,6 +22,11 @@ spring:
       port: ${REDIS_PORT:6379}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false # Job은 요청이 올 때 JobLauncher로 직접 실행하므로 기동 시 자동 실행은 끈다
 
 jwt:
   secret: ${JWT_SECRET}
