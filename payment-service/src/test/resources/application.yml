@@ -1,0 +1,61 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    database-platform: org.hibernate.dialect.H2Dialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+
+jwt:
+  secret: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=
+
+kafka:
+  topic:
+    settlement-notification: settlement.notification
+    settlement-reminder: settlement.reminder
+    group-buy-payment-success: group-buy.payment.success
+    group-buy-payment-failed: group-buy.payment.failed
+    group-buy-delivery-complete: group-buy.delivery.complete
+    group-buy-shipping-started: group-buy.shipping.started
+    group-buy-shipping-info-complete: group-buy.shipping-info.complete
+  producer:
+    retries: 3
+    retry-backoff-ms: 1000
+    request-timeout-ms: 30000
+    delivery-timeout-ms: 120000
+    send-timeout-seconds: 30
+    max-outbox-retries: 5
+
+billing-key:
+  encryption-secret: HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=
+
+delivery:
+  tracking:
+    api-key: test-key
+    api-url: https://info.sweettracker.co.kr/api/v1/trackingInfo
+
+app:
+  base-url: http://localhost:3000
+
+crawler:
+  python:
+    path: python3
+  timeout-seconds: 30

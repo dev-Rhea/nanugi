@@ -1,0 +1,57 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    database-platform: org.hibernate.dialect.H2Dialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+
+jwt:
+  secret: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=
+
+kafka:
+  topic:
+    group-buy-payment-request: group-buy.payment.request
+    group-buy-shipping-started: group-buy.shipping.started
+    group-buy-shipping-info-complete: group-buy.shipping-info.complete
+    group-buy-delivery-complete: group-buy.delivery.complete
+
+billing-key:
+  encryption-secret: HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=
+
+delivery:
+  tracking:
+    api-key: test-key
+    api-url: https://info.sweettracker.co.kr/api/v1/trackingInfo
+
+app:
+  base-url: http://localhost:3000
+
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+    product-service:
+      url: http://localhost:8083
+    payment-service:
+      url: http://localhost:8081

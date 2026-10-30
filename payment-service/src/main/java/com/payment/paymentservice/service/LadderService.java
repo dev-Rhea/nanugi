@@ -8,6 +8,7 @@ import com.payment.common.domain.SettlementParticipant;
 import com.payment.common.domain.SettlementStatus;
 import com.payment.common.exception.CustomErrorCode;
 import com.payment.common.exception.CustomException;
+import com.payment.common.lock.DistributedLock;
 import com.payment.paymentservice.dto.response.LadderResultResponse;
 import com.payment.paymentservice.repository.LadderResultRepository;
 import com.payment.paymentservice.repository.SettlementRepository;
@@ -39,6 +40,10 @@ public class LadderService {
      * 예: 10000원 ÷ 3명 = 3333원씩 + 나머지 1원
      *     사다리 결과 순서: [A, B, C] → A가 3334원, B와 C가 3333원
      */
+    // existsBySettlementId 조회만으로는 두 요청이 동시에 통과할 수 있는 레이스 컨디션이
+    // 있어, 정산 단위 분산 락으로 먼저 직렬화한다. 락이 실패/만료되는 극단적 상황의
+    // 최종 방어선은 LadderResult.settlement의 DB unique 제약이다.
+    @DistributedLock(key = "'ladder:' + #settlementId")
     @Transactional
     public LadderResultResponse executeLadder(Long settlementId, Long memberId) {
         Settlement settlement = settlementRepository.findByIdWithParticipants(settlementId)

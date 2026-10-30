@@ -28,3 +28,6 @@ jwt:
   secret: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=
   access-token-expiration: 3600000
   refresh-token-expiration: 604800000
+
+billing-key:
+  encryption-secret: HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=

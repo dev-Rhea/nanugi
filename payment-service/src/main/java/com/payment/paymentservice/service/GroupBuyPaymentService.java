@@ -7,6 +7,7 @@ import com.payment.paymentservice.dto.request.RefundRequest;
 import com.payment.paymentservice.dto.response.BatchPaymentResponse;
 import com.payment.paymentservice.dto.response.BatchPaymentResponse.ParticipantPaymentResult;
 import com.payment.paymentservice.dto.response.PaymentResponse;
+import com.payment.common.lock.DistributedLock;
 import com.payment.paymentservice.payment.PaymentGateway;
 import com.payment.paymentservice.payment.PaymentGateway.PaymentResult;
 import java.math.BigDecimal;
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Service;
 public class GroupBuyPaymentService {
 
     private final PaymentGateway paymentGateway;
+    private final ParticipantPaymentExecutor participantPaymentExecutor;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ExecutorService paymentExecutor = Executors.newFixedThreadPool(10);
 
@@ -36,8 +38,10 @@ public class GroupBuyPaymentService {
     private String paymentSuccessTopic;
 
     /**
-     * 단건 결제 처리
+     * 단건 결제 처리. 같은 orderId로 재시도/중복 요청이 동시에 들어와도
+     * 참가자 단위 락과 동일한 네이밍(payment:*)으로 직렬화한다.
      */
+    @DistributedLock(key = "'single:' + #request.orderId()")
     public PaymentResponse processPayment(ProcessPaymentRequest request) {
         PaymentResult result = paymentGateway.processPayment(
             request.billingKey(),
@@ -56,8 +60,12 @@ public class GroupBuyPaymentService {
     }
 
     /**
-     * 일괄 결제 실행 (모집 확정 후)
+     * 일괄 결제 실행 (모집 확정 후). 같은 공동구매에 대한 배치 결제가
+     * 중복 트리거(네트워크 재시도, 관리자 재실행 등)되어도 한 번만 실행되도록
+     * 공동구매 단위 락으로 메서드 전체를 감싼다. 참가자별 결제는
+     * {@link ParticipantPaymentExecutor}가 참가자 단위 락으로 한 번 더 보호한다.
      */
+    @DistributedLock(key = "'batch-payment:' + #request.groupBuyId()", waitTime = 3, leaseTime = 60)
     public BatchPaymentResponse processBatchPayment(BatchPaymentRequest request) {
         Long groupBuyId = request.groupBuyId();
         BigDecimal pricePerPerson = request.pricePerPerson();
@@ -71,7 +79,9 @@ public class GroupBuyPaymentService {
                 String orderId = generateOrderId(groupBuyId, participant.participantId());
                 String orderName = orderNamePrefix + " - " + participant.nickname();
 
-                PaymentResult result = paymentGateway.processPayment(
+                PaymentResult result = participantPaymentExecutor.executeParticipantPayment(
+                    groupBuyId,
+                    participant.participantId(),
                     participant.billingKey(),
                     orderId,
                     pricePerPerson,

@@ -27,3 +27,9 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-expiration: 3600000 # 1 hour
   refresh-token-expiration: 604800000 # 7 days
+
+# GroupBuyParticipant.billingKey의 @Convert(BillingKeyConverter)를 Hibernate가
+# 이 서비스에서도 생성하므로(EntityScan이 com.payment 전체를 포함) 동일 키가 필요하다.
+# 운영 환경에서는 반드시 BILLING_KEY_SECRET 환경변수로 교체해야 한다.
+billing-key:
+  encryption-secret: ${BILLING_KEY_SECRET:HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}

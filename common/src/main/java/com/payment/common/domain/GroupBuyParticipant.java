@@ -1,6 +1,8 @@
 package com.payment.common.domain;
 
+import com.payment.common.crypto.BillingKeyConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -11,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -42,7 +45,8 @@ public class GroupBuyParticipant {
     @Column(nullable = false)
     private String nickname;
 
-    // 결제 예약 정보 (빌링키)
+    // 결제 예약 정보 (빌링키). DB 유출 시에도 평문 노출되지 않도록 AES-256-CBC로 암복호화한다.
+    @Convert(converter = BillingKeyConverter.class)
     private String billingKey;
 
     private boolean billingKeyRegistered;
@@ -83,6 +87,11 @@ public class GroupBuyParticipant {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    // Redisson 참가자 단위 락이 1차 방어선이고, 낙관적 락은 락이 만료/실패하는
+    // 극단적 상황에서도 결제 상태 갱신이 서로를 덮어쓰지 않도록 하는 최종 방어선이다.
+    @Version
+    private Long version;
 
     @Builder
     public GroupBuyParticipant(GroupBuy groupBuy, Member member, String kakaoUuid, String nickname) {

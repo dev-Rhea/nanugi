@@ -26,8 +26,10 @@ public class LadderResult {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // unique 제약: 분산 락이 실패/만료되는 극단적 상황에서도 같은 정산의 사다리가
+    // 두 번 저장되지 않도록 하는 최종 방어선(애플리케이션 락이 1차 방어).
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "settlement_id", nullable = false)
+    @JoinColumn(name = "settlement_id", nullable = false, unique = true)
     private Settlement settlement;
 
     @Column(precision = 15, scale = 2)

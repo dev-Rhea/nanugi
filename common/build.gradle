@@ -2,9 +2,18 @@ dependencies {
     api 'org.springframework.boot:spring-boot-starter-data-jpa'
     api 'org.springframework.boot:spring-boot-starter-validation'
     api 'org.springframework.boot:spring-boot-starter-web'
+    // spring-boot-starter-aop는 이 Boot 버전 계열에서 아직 배포되지 않아, 구성 요소를 직접 추가한다.
+    api 'org.springframework:spring-aop'
+    api 'org.aspectj:aspectjweaver'
+    // redisson-spring-boot-starter의 자동 구성 메타데이터가 이 Boot 버전의 패키지
+    // 구조와 맞지 않아(RedisAutoConfiguration 경로 변경), 자동 구성 없는 코어
+    // 아티팩트만 쓰고 RedissonConfig에서 빈을 직접 등록한다.
+    api 'org.redisson:redisson:3.40.2'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.testcontainers:testcontainers:1.20.4'
 }
 
 bootJar { enabled = false}

@@ -12,7 +12,8 @@ public enum CustomErrorCode {
     FORBIDDEN(HttpStatus.FORBIDDEN, "403", "Forbidden resource."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "404", "Resource not found."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "500", "Internal server error."),
-    SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "503", "Service is currently unavailable.");
+    SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "503", "Service is currently unavailable."),
+    LOCK_TIMEOUT(HttpStatus.SERVICE_UNAVAILABLE, "503", "Failed to acquire lock, please retry.");
 
     private final HttpStatus httpStatus;
     private final String code;
