@@ -36,8 +36,16 @@ public class DistributedLockAspect {
     private final RedissonClient redissonClient;
     private final ExpressionParser parser = new SpelExpressionParser();
 
-    @Around("@annotation(distributedLock)")
-    public Object lock(ProceedingJoinPoint joinPoint, DistributedLock distributedLock) throws Throwable {
+    // @annotation(distributedLock)로 애너테이션 값을 advice 파라미터에 바인딩하는
+    // 방식은 argNames를 명시해도 "Required to bind 2 arguments, but only bound 1"
+    // 예외가 나는 환경이 있었다(이 아티팩트 조합에서 직접 재현·확인함). Spring AOP의
+    // 바인딩 메커니즘에 의존하지 않고, 매칭된 메서드에서 애너테이션을 직접 리플렉션으로
+    // 읽어오는 방식으로 바꿔 그 의존성을 제거한다.
+    @Around("@annotation(com.payment.common.lock.DistributedLock)")
+    public Object lock(ProceedingJoinPoint joinPoint) throws Throwable {
+        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+        DistributedLock distributedLock = signature.getMethod().getAnnotation(DistributedLock.class);
+
         String key = LOCK_KEY_PREFIX + resolveKey(joinPoint, distributedLock.key());
         RLock rLock = redissonClient.getLock(key);
 
