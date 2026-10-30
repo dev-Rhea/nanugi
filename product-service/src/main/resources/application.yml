@@ -4,6 +4,17 @@ server:
 spring:
   application:
     name: product-service
+  # common 모듈이 spring-boot-starter-data-jpa를 api 의존성으로 가져와서
+  # product-service에 엔티티가 없어도 Boot가 DataSource를 요구한다
+  # (docker-compose로 실제 기동해보고 나서야 드러난 문제).
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/nanugi}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
 
 crawler:
   python:

@@ -1,0 +1,30 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: analysis-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/nanugi}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: analysis-service
+
+jwt:
+  secret: ${JWT_SECRET}
+
+# GroupBuyParticipant.billingKey의 @Convert(BillingKeyConverter)를 Hibernate가
+# 이 서비스에서도 생성하므로(EntityScan이 com.payment.common.domain을 포함) 필요하다.
+billing-key:
+  encryption-secret: ${BILLING_KEY_SECRET:HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}

@@ -1,0 +1,173 @@
+# 로컬에서 5개 서비스를 한 번에 띄우기 위한 구성. 이전에는 feature 브랜치별로
+# 나뉘어 한 번도 함께 실행해본 적이 없었다 — 이 파일로 처음 통합 실행한다.
+#
+# 실행 순서:
+#   1) ./gradlew bootJar            (루트에서, 전체 서비스 jar 빌드)
+#   2) docker compose build
+#   3) docker compose up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nanugi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:15432:5432" # 호스트에 이미 5432를 쓰는 프로세스가 있을 수 있어 호스트 포트만 바꿈
+    volumes:
+      - nanugi-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:3.8.1
+    ports:
+      - "127.0.0.1:9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  auth-service:
+    build:
+      context: .
+      args:
+        JAR_PATH: auth-service/build/libs/auth-service-0.0.1-SNAPSHOT.jar
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/nanugi
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=}
+      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:-HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-local-dev-kakao-client-id}
+      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:-http://localhost:3000/oauth/callback}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  product-service:
+    build:
+      context: .
+      args:
+        JAR_PATH: product-service/build/libs/product-service-0.0.1-SNAPSHOT.jar
+    ports:
+      - "127.0.0.1:8083:8083"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/nanugi
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  payment-service:
+    build:
+      context: .
+      args:
+        JAR_PATH: payment-service/build/libs/payment-service-0.0.1-SNAPSHOT.jar
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/nanugi
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET:-dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=}
+      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:-HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}
+      DELIVERY_TRACKING_API_KEY: ${DELIVERY_TRACKING_API_KEY:-}
+      APP_BASE_URL: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  order-service:
+    build:
+      context: .
+      args:
+        JAR_PATH: order-service/build/libs/order-service-0.0.1-SNAPSHOT.jar
+    ports:
+      - "127.0.0.1:8082:8082"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/nanugi
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET:-dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=}
+      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:-HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}
+      DELIVERY_TRACKING_API_KEY: ${DELIVERY_TRACKING_API_KEY:-}
+      APP_BASE_URL: http://localhost:3000
+      PRODUCT_SERVICE_URL: http://product-service:8083
+      PAYMENT_SERVICE_URL: http://payment-service:8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+
+  analysis-service:
+    build:
+      context: .
+      args:
+        JAR_PATH: analysis-service/build/libs/analysis-service-0.0.1-SNAPSHOT.jar
+    ports:
+      - "127.0.0.1:8084:8084"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/nanugi
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET:-dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=}
+      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:-HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+volumes:
+  nanugi-postgres-data:
