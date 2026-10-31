@@ -7,6 +7,7 @@ import com.payment.analysisservice.dto.response.SpendingTrendResponse;
 import com.payment.analysisservice.service.AnalyticsService;
 import com.payment.common.domain.PeriodType;
 import com.payment.common.domain.SpendingRecord;
+import com.payment.common.domain.SpendingType;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -47,11 +48,19 @@ public class AnalyticsDashboardController {
     public ResponseEntity<List<SpendingRecord>> getSpendingRecords(
         @AuthenticationPrincipal Long memberId,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+        @RequestParam(required = false) Long minAmount,
+        @RequestParam(required = false) Long maxAmount,
+        @RequestParam(required = false) String category,
+        @RequestParam(required = false) SpendingType type) {
 
         AnalyticsFilterRequest filter = AnalyticsFilterRequest.builder()
             .startDate(startDate)
             .endDate(endDate)
+            .minAmount(minAmount)
+            .maxAmount(maxAmount)
+            .category(category)
+            .type(type)
             .build();
 
         List<SpendingRecord> records = analyticsService.getSpendingRecords(memberId, filter);

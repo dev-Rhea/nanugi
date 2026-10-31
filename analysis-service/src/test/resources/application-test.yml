@@ -1,0 +1,33 @@
+server:
+  port: 0
+
+spring:
+  application:
+    name: analysis-service-test
+
+  datasource:
+    url: jdbc:h2:mem:analysis-testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      auto-startup: false   # 테스트에서 Kafka consumer 자동 시작 비활성화
+
+jwt:
+  secret: dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBqd3QgdG9rZW4gZ2VuZXJhdGlvbg==
+
+logging:
+  level:
+    com.payment: WARN
+    org.springframework: WARN

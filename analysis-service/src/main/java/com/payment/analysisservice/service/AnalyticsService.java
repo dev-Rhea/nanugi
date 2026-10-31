@@ -177,8 +177,15 @@ public class AnalyticsService {
         LocalDateTime start = filter.getStartDateOrDefault().atStartOfDay();
         LocalDateTime end = filter.getEndDateOrDefault().atTime(LocalTime.MAX);
 
-        return spendingRecordRepository.findByMemberIdAndStatusAndCompletedAtBetween(
-            memberId, SpendingStatus.COMPLETED, start, end);
+        List<SpendingRecord> records = spendingRecordRepository
+            .findByMemberIdAndStatusAndCompletedAtBetween(memberId, SpendingStatus.COMPLETED, start, end);
+
+        return records.stream()
+            .filter(r -> filter.getMinAmount() == null || r.getAmountPerPerson() >= filter.getMinAmount())
+            .filter(r -> filter.getMaxAmount() == null || r.getAmountPerPerson() <= filter.getMaxAmount())
+            .filter(r -> filter.getCategory() == null || filter.getCategory().equals(r.getCategory()))
+            .filter(r -> filter.getType() == null || filter.getType() == r.getType())
+            .collect(Collectors.toList());
     }
 
     private DateTimeFormatter getFormatter(PeriodType periodType) {
