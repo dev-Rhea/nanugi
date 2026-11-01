@@ -27,4 +27,4 @@ jwt:
 # GroupBuyParticipant.billingKey의 @Convert(BillingKeyConverter)를 Hibernate가
 # 이 서비스에서도 생성하므로(EntityScan이 com.payment.common.domain을 포함) 필요하다.
 billing-key:
-  encryption-secret: ${BILLING_KEY_SECRET:HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}
+  encryption-secret: ${BILLING_KEY_SECRET}

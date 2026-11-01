@@ -32,9 +32,9 @@ jwt:
   secret: ${JWT_SECRET}
 
 # AES-256 키(Base64, 32바이트 디코딩). 아래 값은 로컬 개발용 기본값이며
-# 운영 환경에서는 반드시 BILLING_KEY_SECRET 환경변수로 교체해야 한다.
+# 키는 BILLING_KEY_SECRET 환경변수로만 받는다. 기본값을 두지 않아, 없으면 기동이 실패한다.
 billing-key:
-  encryption-secret: ${BILLING_KEY_SECRET:HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}
+  encryption-secret: ${BILLING_KEY_SECRET}
 
 kafka:
   topic:

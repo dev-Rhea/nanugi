@@ -50,7 +50,7 @@ kafka:
     max-outbox-retries: 5
 
 billing-key:
-  encryption-secret: HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=
+  encryption-secret: rvILiS98aExod2KzvYzvRDgQ64pXia3QafMyMCwkmoQ=  # 테스트 전용 키
 
 delivery:
   tracking:

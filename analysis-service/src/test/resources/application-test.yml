@@ -31,3 +31,7 @@ logging:
   level:
     com.payment: WARN
     org.springframework: WARN
+
+# BillingKeyConverter 가 쓰는 테스트 전용 키 (운영 키와 무관)
+billing-key:
+  encryption-secret: rvILiS98aExod2KzvYzvRDgQ64pXia3QafMyMCwkmoQ=

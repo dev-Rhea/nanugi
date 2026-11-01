@@ -67,7 +67,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=}
-      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:-HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}
+      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:?BILLING_KEY_SECRET 환경변수가 필요합니다. .env.example 참고}
       KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-local-dev-kakao-client-id}
       KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:-http://localhost:3000/oauth/callback}
     depends_on:
@@ -106,7 +106,7 @@ services:
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: ${JWT_SECRET:-dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=}
-      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:-HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}
+      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:?BILLING_KEY_SECRET 환경변수가 필요합니다. .env.example 참고}
       DELIVERY_TRACKING_API_KEY: ${DELIVERY_TRACKING_API_KEY:-}
       APP_BASE_URL: http://localhost:3000
     depends_on:
@@ -132,7 +132,7 @@ services:
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: ${JWT_SECRET:-dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=}
-      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:-HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}
+      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:?BILLING_KEY_SECRET 환경변수가 필요합니다. .env.example 참고}
       DELIVERY_TRACKING_API_KEY: ${DELIVERY_TRACKING_API_KEY:-}
       APP_BASE_URL: http://localhost:3000
       PRODUCT_SERVICE_URL: http://product-service:8083
@@ -162,7 +162,7 @@ services:
       DATABASE_PASSWORD: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: ${JWT_SECRET:-dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdG9rZW4tZ2VuZXJhdGlvbi1zaG91bGQtYmUtbG9uZy1lbm91Z2g=}
-      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:-HUdw66JrU4YhvEgan587L6JJl9tYYAu4LwYqygyUncQ=}
+      BILLING_KEY_SECRET: ${BILLING_KEY_SECRET:?BILLING_KEY_SECRET 환경변수가 필요합니다. .env.example 참고}
     depends_on:
       postgres:
         condition: service_healthy
